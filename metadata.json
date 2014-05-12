@@ -1,0 +1,6 @@
+{
+   "shell-version": ["3.12.1"],
+   "uuid": "return-to-monitor@aiguofer.github.com",
+   "name": "Return to Monitor",
+   "description": "Gnome-Shell extension to return windows to the right monitor whenever you plug a monitor back in."
+}
