@@ -1,4 +1,4 @@
-let windows, lastMonitorCount, monitorChangeHandlerID, ;
+let windows, lastMonitorCount, signalIDs;
 
 function handleMonitorChange() {
    let currentMonitorCount = global.screen.get_n_monitors();
@@ -10,14 +10,18 @@ function handleMonitorChange() {
 }
 
 function updateWindowList() {
-   windows = [];
-   let windowActors = global.get_window_actors();
-   for (let i = 0; i < windowActors.length; i++) {
-      windows.push({
-         'metaWindow': windowActors[i].get_meta_window(),
-         'monitor': windowActors[i].get_meta_window().get_monitor()
-      });
-      // log('Saving: ' + windows[windows.length - 1].metaWindow.get_title() + " to " + windows[windows.length - 1].monitor);
+   let currentMonitorCount = global.screen.get_n_monitors();
+   // log("There are " + currentMonitorCount + " monitors");
+   if (currentMonitorCount > 1 && lastMonitorCount == currentMonitorCount) {
+      windows = [];
+      let windowActors = global.get_window_actors();
+      for (let i = 0; i < windowActors.length; i++) {
+         windows.push({
+            'metaWindow': windowActors[i].get_meta_window(),
+            'monitor': windowActors[i].get_meta_window().get_monitor()
+         });
+         // log('Saving: ' + windows[windows.length - 1].metaWindow.get_title() + " to " + windows[windows.length - 1].monitor);
+      }
    }
 }
 
@@ -28,23 +32,29 @@ function returnWindows() {
    })
 }
 
-// function startWindowPoller() {
-//    intervalID = setInterval(updateWindowList, 5 * 60000);
-// }
-
-// function stopWindowPoller() {
-//    clearInterval(setIntervalID)
-// }
-
 function init() {}
 
 function enable() {
+   signalIDs = [];
    lastMonitorCount = global.screen.get_n_monitors();
    updateWindowList();
-   monitorChangeHandlerID = global.screen.connect('monitors-changed', handleMonitorChange);
+   signalIDs.push({
+      'obj': global.screen,
+      'id': global.screen.connect('monitors-changed', handleMonitorChange)
+   });
+   signalIDs.push({
+      'obj': global.screen,
+      'id': global.screen.connect('window-left-monitor', updateWindowList)
+   })
+   signalIDs.push({
+      'obj': global.screen.get_display(),
+      'id': global.screen.get_display().connect('window-created', updateWindowList)
+   })
 }
 
 function disable() {
    windows = [];
-   global.screen.disconnect(monitorChangeHandlerID);
+   signalIDs.forEach(function(signal) {
+      signal.obj.disconnect(signal.id);
+   });
 }
