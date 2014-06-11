@@ -1,9 +1,9 @@
-let _windows, _lastMonitorCount, _connectedSignals, _windowSignals;
+let _windows, _lastMonitorCount, _connectedSignals, _windowSignals, _firstLoad;
 
 function _handleMonitorChange() {
    let currentMonitorCount = global.screen.get_n_monitors();
-   if (currentMonitorCount > _lastMonitorCount) {
-      returnWindows();
+   if (currentMonitorCount > _lastMonitorCount && currentMonitorCount > 1) {
+      _returnWindows();
    }
    _lastMonitorCount = currentMonitorCount;
 }
@@ -22,16 +22,14 @@ function _updateWindowList(isNew) {
 }
 
 function _saveWindow(metaWindow, isNew) {
+   let monitor = metaWindow.get_monitor();
    _windows.push({
       metaWindow: metaWindow,
-      monitor: metaWindow.get_monitor()
+      monitor: monitor
    });
-   // Only create a signal if it's newly added
+   // Only create a signal if it's a newly added window
    if (isNew) {
-      _windowSignals.push({
-         obj: metaWindow,
-         id: metaWindow.connect('unmanaged', _handleWindowClose)
-      });
+      _connectToSignal(_windowSignals, metaWindow, metaWindow.connect('unmanaged', _handleWindowClose))
    }
 }
 
@@ -62,36 +60,45 @@ function _handleMovedWindow() {
    _updateWindowList(false);
 }
 
-function returnWindows() {
+function _connectToSignal(signalList, obj, id) {
+   signalList.push({
+      obj: obj,
+      id: id
+   });
+}
+
+function _returnWindows() {
    _windows.forEach(function(win) {
       win.metaWindow.move_to_monitor(win.monitor);
    })
 }
 
-function init() {}
-
-function enable() {
+function init() {
+   this._schema = Convenience.getSettings();
    _connectedSignals = [];
    _windowSignals = [];
    _windows = [];
+   _firstLoad = true;
+}
+
+function enable() {
    _lastMonitorCount = global.screen.get_n_monitors();
-   _updateWindowList(true);
-   _connectedSignals.push({
-      obj: global.screen,
-      id: global.screen.connect('monitors-changed', _handleMonitorChange)
-   });
-   _connectedSignals.push({
-      obj: global.screen,
-      id: global.screen.connect('window-left-monitor', _handleMovedWindow)
-   })
-   _connectedSignals.push({
-      obj: global.screen.get_display(),
-      id: global.screen.get_display().connect('window-created', _handleNewWindow)
-   })
+   // Only return windows if there's more than 1 monitor
+   if (global.screen.get_n_monitors() > 1) {
+      _returnWindows();
+   }
+   // Only update the window list if this is the first time the extension loads
+   if (_firstLoad) {
+      _updateWindowList(true);
+      _firstLoad = false;
+   }
+
+   _connectToSignal(_connectedSignals, global.screen, global.screen.connect('monitors-changed', _handleMonitorChange));
+   _connectToSignal(_connectedSignals, global.screen, global.screen.connect('window-left-monitor', _handleMovedWindow));
+   _connectToSignal(_connectedSignals, global.screen, global.screen.get_display().connect('window-created', _handleNewWindow));
 }
 
 function disable() {
-   _windows = [];
    _connectedSignals.forEach(function(signal) {
       signal.obj.disconnect(signal.id);
    });
