@@ -2,6 +2,7 @@ let _windows, _lastMonitorCount, _connectedSignals, _windowSignals, _firstLoad;
 
 function _handleMonitorChange() {
    let currentMonitorCount = global.screen.get_n_monitors();
+   // Only return windows if the number of monitors increased to more than 1
    if (currentMonitorCount > _lastMonitorCount && currentMonitorCount > 1) {
       _returnWindows();
    }
@@ -27,19 +28,21 @@ function _saveWindow(metaWindow, isNew) {
       metaWindow: metaWindow,
       monitor: monitor
    });
-   // Only create a signal if it's a newly added window
+   // Only connect to signal if it's a newly added window
    if (isNew) {
-      _connectToSignal(_windowSignals, metaWindow, metaWindow.connect('unmanaged', _handleWindowClose))
+      _saveSignalID(_windowSignals, metaWindow, metaWindow.connect('unmanaged', _handleWindowClose));
    }
 }
 
 function _handleWindowClose(metaWindow) {
+   // remove the window from the list
    for (let i = 0; i < _windows.length; i++) {
       if (_windows[i].metaWindow === metaWindow) {
          _windows.splice(i, 1);
          break;
       }
    }
+   // disconnect from the window signal
    for (let i = 0; i < _windowSignals.length; i++) {
       if (_windowSignals[i].obj === metaWindow) {
          metaWindow.disconnect(_windowSignals[i].id);
@@ -50,8 +53,8 @@ function _handleWindowClose(metaWindow) {
 }
 
 function _handleNewWindow(metaDisplay, metaWindow) {
-   // New windows get saved regardless since they should be on the primary monitor
-   // after going back to a multi-monitor setup
+   // New windows get saved even on single monitor setup since they should be on
+   // the primary monitor after going back to a multi-monitor setup
    _saveWindow(metaWindow, true);
 }
 
@@ -60,7 +63,7 @@ function _handleMovedWindow() {
    _updateWindowList(false);
 }
 
-function _connectToSignal(signalList, obj, id) {
+function _saveSignalID(signalList, obj, id) {
    signalList.push({
       obj: obj,
       id: id
@@ -70,7 +73,7 @@ function _connectToSignal(signalList, obj, id) {
 function _returnWindows() {
    _windows.forEach(function(win) {
       win.metaWindow.move_to_monitor(win.monitor);
-   })
+   });
 }
 
 function init() {
@@ -93,9 +96,9 @@ function enable() {
       _firstLoad = false;
    }
 
-   _connectToSignal(_connectedSignals, global.screen, global.screen.connect('monitors-changed', _handleMonitorChange));
-   _connectToSignal(_connectedSignals, global.screen, global.screen.connect('window-left-monitor', _handleMovedWindow));
-   _connectToSignal(_connectedSignals, global.screen, global.screen.get_display().connect('window-created', _handleNewWindow));
+   _saveSignalID(_connectedSignals, global.screen, global.screen.connect('monitors-changed', _handleMonitorChange));
+   _saveSignalID(_connectedSignals, global.screen, global.screen.connect('window-left-monitor', _handleMovedWindow));
+   _saveSignalID(_connectedSignals, global.screen, global.screen.get_display().connect('window-created', _handleNewWindow));
 }
 
 function disable() {
