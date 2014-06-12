@@ -77,7 +77,6 @@ function _returnWindows() {
 }
 
 function init() {
-   this._schema = Convenience.getSettings();
    _connectedSignals = [];
    _windowSignals = [];
    _windows = [];
